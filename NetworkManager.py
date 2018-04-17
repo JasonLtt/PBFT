@@ -1,56 +1,44 @@
-class NetworkManager(object):
-    """The NetworkManager creates new PBFT nodes based on user input.
-    The nodes represent a Distributed State Machine which handles user requests
-    to perform specified operations.  At this time, the nodes only support basic
-     arithmetic operations; the entirety of the distributed state is a floating
-    point value.
-    """
+from asyncio import *
+from aioconsole import ainput
 
-    def __init__(self):
-        self.nb_nodes=[]
-        self.b_nodes=[]
+help_string=  """\n1. 'create:[# of non-Byzantine nodes]:[# of Byzantine nodes]' : Adds the specified number of new nodes to the network.
+2. 'make_b:[# of non-Byzantine nodes to turn Byzantine]' : Turns the specified number of non-Byzantine nodes into Byzantine nodes.  If the number specified is greater than the number of available non-Byzantine nodes, the server simply turns all available non-Byzantine nodes into Byzantine nodes.
+3. 'make_nb:[# of Byzantine nodes to turn non-Byzantine]' : Turns the specified number of Byzantine nodes into non-Byzantine nodes.  If the number specified is greater than the number of available Byzantine nodes, the server simply turns all available Byzantine nodes into non-Byzantine nodes.
+4. 'delete:[# of non-Byzantine nodes]:[# of Byzantine nodes]' : Deletes the specified number of nodes from the network.  If the number specified for either non-Byzantine or Byzantine nodes is greater than the number of nodes of that type that actually exist, the server deletes all of the nodes of that type.
+5. 'compute:[add|subtract]:[number to use in calculation (in conjunction with existing distributed-state value)]' : Sends a value to be used to update the distributed-state value of the distributed ledger.  The provided number will either be added to or subtracted from the distributed state value, depending on which operation is specified.
+6. 'info' : Returns all relevant information pertaining to the network.
+7. 'help' : Display the list of commands and their corresponding syntaxes.
+8. 'exit' : Closes the Network Manager console; the server and the corresponding client nodes remain active."""
 
-    def run(self):
-        running=True
-        while running:
-            command=input('What command would you like to perform?  ')
-            if command=='add':
-                try:
-                    node_count=int(input('How many new nodes would you like to add?  '))
-                    if node_count<=0:
-                        print('The number of new nodes was not valid.  Please try '+
-                        'again with a positive integer.')
-                    try:
-                        byz_count=int(input('How many of the '+str(node_count)+
-                        ' new nodes would you like to be Byzantine?  '))
-                        if byz_count<0 or byz_count>node_count:
-                            print('The number of Byzantine nodes must be greater than or equal to zero'
-                            +' and less than or equal to the number of new nodes.')
-                            continue
-                        else:
-                            nb_name='nodes'
-                            if node_count-byz_count==1:
-                                nb_name='node'
-                            b_name='nodes'
-                            if byz_count==1:
-                                b_name='node'
-                            print(str(node_count-byz_count)+' new non-Byzantine '+nb_name+' and '+
-                            str(byz_count)+' new Byzantine '+b_name+' will be created.')
-                    except:
-                        print('The value you input for the number of new Byzantine '+
-                        'nodes was not valid.  Please try again with a non-negative integer.')
-                except:
-                    print('The value you input for the number of new nodes was '+
-                    'not valid.  Please try again with a non-negative integer.')
-            #add new command handling here (e.g. delete, corrupt, compute, etc.)
-            elif command=='exit':
-                running=False
-                print('The program is now exiting...')
-            else:
-                print('Possible commands are:\n'+
-                'add: add new nodes to the network\n'+
-                'exit: exit the program\n'+
-                'help: display this message\n')
+async def console_input(host,port,loop):
+    reader,writer=await open_connection(host,port,loop=loop)
+    while True:
+        input = await ainput('Insert Command >')
+        params=input.split(':')
+        if input=='exit':
+            #netman.disconnect()
+            break
+        elif params[0]=='create' or params[0]=='make_b' or params[0]=='make_nb' or params[0]=='delete' or params[0]=='compute' or params[0]=='info':#ideally this would check parameters
+            writer.write(input.encode())
+            response=await reader.read(1024)
+            print('Response from Server: ',response.decode())
+        else:
+            print('The list of commands and their corresponding syntaxes are provided below:',help_string)
 
-netman=NetworkManager()
-netman.run()
+
+#host = input('On what host is the server running? ')
+host='localhost'
+#port_string = input('On what port is the server running? ')
+#port=int(port_string)
+port=8080
+
+
+loop = get_event_loop()
+
+try:
+    loop.run_until_complete(console_input(host,port,loop))
+except:
+    pass
+finally:
+    print('Exiting Network Manager console.')
+    loop.close()
